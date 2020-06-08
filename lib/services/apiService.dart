@@ -1,6 +1,6 @@
 
 import 'package:dio/dio.dart';
-import 'package:zypher/models/CategoryModel.dart';
+import 'package:zypher/models/category.dart';
 
 class ApiService{
 

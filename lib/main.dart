@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:zypher/models/CategoryModel.dart';
+import 'package:zypher/bloc/zypher_bloc.dart';
+import 'package:zypher/bloc/zypher_event.dart';
+import 'package:zypher/bloc/zypher_state.dart';
+import 'package:zypher/data/zypher_repository.dart';
+import 'package:zypher/models/category.dart';
 import 'package:zypher/services/apiService.dart';
 
 void setup(){
@@ -23,7 +28,9 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: MyHomePage(title: 'Zypher'),
+      home: BlocProvider(
+        create: (BuildContext context) => ZypherBloc(repository: NetworkZypherRepository()),
+          child: MyHomePage(title: 'Zypher')),
     );
   }
 }
@@ -38,14 +45,18 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<Category> categoryInfo ;
-  ApiService _apiService = GetIt.I<ApiService>();
+ // List<Category> categoryInfo ;
+//  ApiService _apiService = GetIt.I<ApiService>();
   @override
   void initState() {
     super.initState();
     debugPrint("Home InitState called");
   }
-
+  @override
+  void didChangeDependencies() {
+    context.bloc<ZypherBloc>()..add(GetCategoryInfo());
+    super.didChangeDependencies();
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,47 +140,17 @@ class _MyHomePageState extends State<MyHomePage> {
                   color: Colors.white,
                   height: 130.0,
                   width: MediaQuery.of(context).size.width,
-                  child: StreamBuilder(
-                    stream: _apiService.getCategoryInfo(),
-                      builder: (context,snapshot){
-                    switch(snapshot.connectionState){
-                      case ConnectionState.none:
-                      case ConnectionState.active:
-                      case ConnectionState.waiting:
-                        return Center(child: CircularProgressIndicator());
-                      case ConnectionState.done:
-                        if(snapshot.hasData){
-                          categoryInfo = snapshot.data;
-                          print("SNAPSHOT DATA ${snapshot.data}");
-                          return ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: categoryInfo.length,
-                              itemBuilder: (context,index){
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0,horizontal: 10.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: <Widget>[
-                                  CircleAvatar(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Image.network(categoryInfo[index].categoryImageURL),
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: 20.0,
-                                  ),
-                                  Text('${categoryInfo[index].categoryName}')
-                                ],
-                              ),
-                            );
-                          });
-                        }else{
-                          return Text('No data available');
-                        }
-                    }
-                    return null;
-                  }),
+                  child: Center(
+                    child: BlocBuilder<ZypherBloc,ZypherState>(builder: (BuildContext context,ZypherState state){
+                      if(state is ZypherStateLoading){
+                        return buildLoading();
+                      }else if (state is ZypherStateLoaded){
+                        return buildRowData(state.categories);
+                      }else {
+                        return Text("No Data available");
+                      }
+                    }),
+                  ),
                 )
               ],
             ),
@@ -185,4 +166,33 @@ class _MyHomePageState extends State<MyHomePage> {
     super.deactivate();
   }
 
+  Widget buildLoading() {
+    return CircularProgressIndicator();
+  }
+
+  Widget buildRowData(List<Category> categoryInfo) {
+    return ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: categoryInfo.length,
+        itemBuilder: (context,index){
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0,horizontal: 10.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                CircleAvatar(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Image.network(categoryInfo[index].categoryImageURL),
+                  ),
+                ),
+                SizedBox(
+                  height: 20.0,
+                ),
+                Text('${categoryInfo[index].categoryName}')
+              ],
+            ),
+          );
+        });
+  }
 }
